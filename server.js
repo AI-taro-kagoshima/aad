@@ -8,14 +8,31 @@ const PORT = process.env.PORT || 3000;
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// 今日の記録を取得
-app.get('/api/today', (req, res) => {
-  const today = new Date().toLocaleDateString('sv-SE'); // YYYY-MM-DD
-  const record = db.prepare('SELECT * FROM records WHERE date = ?').get(today);
-  res.json(record || { date: today, clock_in: null, clock_out: null, memo: '' });
+// ---- 設定 API ----
+
+app.get('/api/settings', (req, res) => {
+  const rows = db.prepare('SELECT key, value FROM settings').all();
+  const settings = {};
+  for (const r of rows) settings[r.key] = r.value;
+  res.json(settings);
 });
 
-// 出勤
+app.put('/api/settings', (req, res) => {
+  const { key, value } = req.body;
+  db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)').run(key, value);
+  res.json({ success: true });
+});
+
+// ---- 今日の記録 ----
+
+app.get('/api/today', (req, res) => {
+  const today = new Date().toLocaleDateString('sv-SE');
+  const record = db.prepare('SELECT * FROM records WHERE date = ?').get(today);
+  res.json(record || { date: today, clock_in: null, clock_out: null, scheduled_in: null, scheduled_out: null, memo: '' });
+});
+
+// ---- 出勤 ----
+
 app.post('/api/clock-in', (req, res) => {
   const now = new Date();
   const date = now.toLocaleDateString('sv-SE');
@@ -36,7 +53,8 @@ app.post('/api/clock-in', (req, res) => {
   res.json(record);
 });
 
-// 退勤
+// ---- 退勤 ----
+
 app.post('/api/clock-out', (req, res) => {
   const now = new Date();
   const date = now.toLocaleDateString('sv-SE');
@@ -56,7 +74,52 @@ app.post('/api/clock-out', (req, res) => {
   res.json(record);
 });
 
-// メモ更新
+// ---- 記録の編集（任意の日付） ----
+
+app.put('/api/records/:date', (req, res) => {
+  const { date } = req.params;
+  const { clock_in, clock_out, memo } = req.body;
+
+  const existing = db.prepare('SELECT * FROM records WHERE date = ?').get(date);
+  if (existing) {
+    db.prepare(`
+      UPDATE records SET clock_in = ?, clock_out = ?, memo = ?, updated_at = datetime('now', 'localtime')
+      WHERE date = ?
+    `).run(clock_in || null, clock_out || null, memo || '', date);
+  } else {
+    db.prepare('INSERT INTO records (date, clock_in, clock_out, memo) VALUES (?, ?, ?, ?)').run(
+      date, clock_in || null, clock_out || null, memo || ''
+    );
+  }
+
+  const record = db.prepare('SELECT * FROM records WHERE date = ?').get(date);
+  res.json(record);
+});
+
+// ---- 予定の編集 ----
+
+app.put('/api/schedule/:date', (req, res) => {
+  const { date } = req.params;
+  const { scheduled_in, scheduled_out } = req.body;
+
+  const existing = db.prepare('SELECT * FROM records WHERE date = ?').get(date);
+  if (existing) {
+    db.prepare(`
+      UPDATE records SET scheduled_in = ?, scheduled_out = ?, updated_at = datetime('now', 'localtime')
+      WHERE date = ?
+    `).run(scheduled_in || null, scheduled_out || null, date);
+  } else {
+    db.prepare('INSERT INTO records (date, scheduled_in, scheduled_out) VALUES (?, ?, ?)').run(
+      date, scheduled_in || null, scheduled_out || null
+    );
+  }
+
+  const record = db.prepare('SELECT * FROM records WHERE date = ?').get(date);
+  res.json(record);
+});
+
+// ---- メモ更新 ----
+
 app.put('/api/memo', (req, res) => {
   const { date, memo } = req.body;
   const existing = db.prepare('SELECT * FROM records WHERE date = ?').get(date);
@@ -67,34 +130,59 @@ app.put('/api/memo', (req, res) => {
   res.json({ success: true });
 });
 
-// 月別履歴取得
+// ---- 月別履歴取得 ----
+
+function calcMinutes(clockIn, clockOut) {
+  if (!clockIn || !clockOut) return 0;
+  const [inH, inM] = clockIn.split(':').map(Number);
+  const [outH, outM] = clockOut.split(':').map(Number);
+  const m = (outH * 60 + outM) - (inH * 60 + inM);
+  return m > 0 ? m : 0;
+}
+
 app.get('/api/records/:year/:month', (req, res) => {
   const { year, month } = req.params;
-  const startDate = `${year}-${month.padStart(2, '0')}-01`;
-  const endDate = `${year}-${month.padStart(2, '0')}-31`;
+  const mm = month.padStart(2, '0');
+  const startDate = `${year}-${mm}-01`;
+  const endDate = `${year}-${mm}-31`;
+  const today = new Date().toLocaleDateString('sv-SE');
 
   const records = db.prepare(
     'SELECT * FROM records WHERE date >= ? AND date <= ? ORDER BY date ASC'
   ).all(startDate, endDate);
 
-  // 勤務時間の合計を計算
-  let totalMinutes = 0;
+  const hourlyWage = Number(
+    (db.prepare("SELECT value FROM settings WHERE key = 'hourly_wage'").get() || {}).value || 1000
+  );
+
+  let actualMinutes = 0;   // 実績勤務分
   let workDays = 0;
+  let scheduledMinutes = 0; // 予定勤務分（未実績の将来日分）
+
   for (const r of records) {
-    if (r.clock_in && r.clock_out) {
-      const [inH, inM] = r.clock_in.split(':').map(Number);
-      const [outH, outM] = r.clock_out.split(':').map(Number);
-      totalMinutes += (outH * 60 + outM) - (inH * 60 + inM);
+    const hasActual = r.clock_in && r.clock_out;
+    if (hasActual) {
+      actualMinutes += calcMinutes(r.clock_in, r.clock_out);
       workDays++;
+    } else if (r.scheduled_in && r.scheduled_out && r.date > today) {
+      scheduledMinutes += calcMinutes(r.scheduled_in, r.scheduled_out);
     }
   }
+
+  const actualSalary = Math.round((actualMinutes / 60) * hourlyWage);
+  const projectedSalary = Math.round(((actualMinutes + scheduledMinutes) / 60) * hourlyWage);
 
   res.json({
     records,
     summary: {
       workDays,
-      totalHours: Math.floor(totalMinutes / 60),
-      totalMinutes: totalMinutes % 60,
+      totalHours: Math.floor(actualMinutes / 60),
+      totalMinutes: actualMinutes % 60,
+      hourlyWage,
+      actualSalary,
+      projectedSalary,
+      scheduledHours: Math.floor(scheduledMinutes / 60),
+      scheduledMinutes: scheduledMinutes % 60,
     },
   });
 });

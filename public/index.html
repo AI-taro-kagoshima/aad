@@ -13,6 +13,18 @@
       <div id="current-time" class="current-time"></div>
     </header>
 
+    <!-- 時給設定 -->
+    <section class="settings-section">
+      <h2>時給設定</h2>
+      <div class="settings-card">
+        <label>時給（円）:
+          <input type="number" id="hourly-wage" min="0" step="1" value="1000">
+        </label>
+        <button class="btn btn-save" onclick="saveWage()">保存</button>
+      </div>
+    </section>
+
+    <!-- 今日の勤怠 -->
     <section class="today-section">
       <h2>今日の勤怠</h2>
       <div class="today-card">
@@ -42,6 +54,7 @@
       </div>
     </section>
 
+    <!-- 月別勤怠履歴 -->
     <section class="history-section">
       <h2>月別勤怠履歴</h2>
       <div class="month-nav">
@@ -49,6 +62,7 @@
         <span id="current-month"></span>
         <button class="btn btn-nav" onclick="nextMonth()">&gt;</button>
       </div>
+      <div class="salary-summary" id="salary-summary"></div>
       <div class="summary" id="summary"></div>
       <table class="history-table">
         <thead>
@@ -58,13 +72,50 @@
             <th>出勤</th>
             <th>退勤</th>
             <th>勤務時間</th>
+            <th>予定</th>
             <th>メモ</th>
+            <th></th>
           </tr>
         </thead>
         <tbody id="history-body"></tbody>
       </table>
     </section>
   </div>
+
+  <!-- 編集モーダル -->
+  <div class="modal-overlay" id="modal-overlay" onclick="closeModal()">
+    <div class="modal" onclick="event.stopPropagation()">
+      <h3 id="modal-title">記録を編集</h3>
+      <input type="hidden" id="edit-date">
+      <div class="modal-field">
+        <label>出勤時刻</label>
+        <input type="time" id="edit-clock-in" step="1">
+      </div>
+      <div class="modal-field">
+        <label>退勤時刻</label>
+        <input type="time" id="edit-clock-out" step="1">
+      </div>
+      <div class="modal-field">
+        <label>メモ</label>
+        <textarea id="edit-memo" rows="2"></textarea>
+      </div>
+      <hr style="margin: 12px 0; border: none; border-top: 1px solid #eee;">
+      <h4 style="margin-bottom: 8px; color: #555;">予定</h4>
+      <div class="modal-field">
+        <label>予定出勤</label>
+        <input type="time" id="edit-scheduled-in" step="60">
+      </div>
+      <div class="modal-field">
+        <label>予定退勤</label>
+        <input type="time" id="edit-scheduled-out" step="60">
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-cancel" onclick="closeModal()">キャンセル</button>
+        <button class="btn btn-in" onclick="saveEdit()">保存</button>
+      </div>
+    </div>
+  </div>
+
   <script src="app.js"></script>
 </body>
 </html>
