@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>出退勤管理</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>出退勤管理</h1>
+      <div id="current-time" class="current-time"></div>
+    </header>
+
+    <section class="today-section">
+      <h2>今日の勤怠</h2>
+      <div class="today-card">
+        <div class="today-date" id="today-date"></div>
+        <div class="today-status">
+          <div class="time-block">
+            <span class="label">出勤</span>
+            <span class="time" id="clock-in-time">--:--:--</span>
+          </div>
+          <div class="time-block">
+            <span class="label">退勤</span>
+            <span class="time" id="clock-out-time">--:--:--</span>
+          </div>
+          <div class="time-block">
+            <span class="label">勤務時間</span>
+            <span class="time" id="work-duration">--:--</span>
+          </div>
+        </div>
+        <div class="actions">
+          <button id="btn-clock-in" class="btn btn-in" onclick="clockIn()">出勤</button>
+          <button id="btn-clock-out" class="btn btn-out" onclick="clockOut()" disabled>退勤</button>
+        </div>
+        <div class="memo-area">
+          <textarea id="memo" placeholder="メモ（任意）" rows="2"></textarea>
+          <button class="btn btn-memo" onclick="saveMemo()">メモ保存</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="history-section">
+      <h2>月別勤怠履歴</h2>
+      <div class="month-nav">
+        <button class="btn btn-nav" onclick="prevMonth()">&lt;</button>
+        <span id="current-month"></span>
+        <button class="btn btn-nav" onclick="nextMonth()">&gt;</button>
+      </div>
+      <div class="summary" id="summary"></div>
+      <table class="history-table">
+        <thead>
+          <tr>
+            <th>日付</th>
+            <th>曜日</th>
+            <th>出勤</th>
+            <th>退勤</th>
+            <th>勤務時間</th>
+            <th>メモ</th>
+          </tr>
+        </thead>
+        <tbody id="history-body"></tbody>
+      </table>
+    </section>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>
