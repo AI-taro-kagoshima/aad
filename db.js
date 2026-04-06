@@ -13,6 +13,7 @@ db.exec(`
     clock_out TEXT,
     scheduled_in TEXT,
     scheduled_out TEXT,
+    break_minutes INTEGER,
     memo TEXT DEFAULT '',
     created_at TEXT DEFAULT (datetime('now', 'localtime')),
     updated_at TEXT DEFAULT (datetime('now', 'localtime'))
@@ -32,6 +33,9 @@ if (!cols.includes('scheduled_in')) {
 }
 if (!cols.includes('scheduled_out')) {
   db.exec("ALTER TABLE records ADD COLUMN scheduled_out TEXT");
+}
+if (!cols.includes('break_minutes')) {
+  db.exec("ALTER TABLE records ADD COLUMN break_minutes INTEGER");
 }
 
 // デフォルト時給を設定（未設定の場合）

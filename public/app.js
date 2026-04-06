@@ -26,11 +26,12 @@ showTodayDate();
 
 // ---- ユーティリティ ----
 
-function calcDuration(clockIn, clockOut) {
+function calcDuration(clockIn, clockOut, breakMins) {
   if (!clockIn || !clockOut) return null;
   const [inH, inM] = clockIn.split(':').map(Number);
   const [outH, outM] = clockOut.split(':').map(Number);
-  const mins = (outH * 60 + outM) - (inH * 60 + inM);
+  const brk = breakMins != null ? breakMins : 60;
+  const mins = (outH * 60 + outM) - (inH * 60 + inM) - brk;
   if (mins < 0) return null;
   const h = Math.floor(mins / 60);
   const m = mins % 60;
@@ -69,7 +70,7 @@ async function loadToday() {
   document.getElementById('clock-in-time').textContent = data.clock_in || '--:--:--';
   document.getElementById('clock-out-time').textContent = data.clock_out || '--:--:--';
 
-  const duration = calcDuration(data.clock_in, data.clock_out);
+  const duration = calcDuration(data.clock_in, data.clock_out, data.break_minutes);
   document.getElementById('work-duration').textContent = duration || '--:--';
 
   document.getElementById('memo').value = data.memo || '';
@@ -165,6 +166,9 @@ function openEditModal(dateStr, record) {
   document.getElementById('edit-clock-out').value = co ? co.substring(0, 5) : '';
   document.getElementById('edit-memo').value = record?.memo || '';
 
+  // 休憩時間
+  document.getElementById('edit-break-minutes').value = record?.break_minutes != null ? record.break_minutes : '';
+
   // 予定
   const si = record?.scheduled_in || '';
   const so = record?.scheduled_out || '';
@@ -183,6 +187,8 @@ async function saveEdit() {
   const clockIn = document.getElementById('edit-clock-in').value;
   const clockOut = document.getElementById('edit-clock-out').value;
   const memo = document.getElementById('edit-memo').value;
+  const breakVal = document.getElementById('edit-break-minutes').value;
+  const breakMinutes = breakVal !== '' ? Number(breakVal) : null;
   const scheduledIn = document.getElementById('edit-scheduled-in').value;
   const scheduledOut = document.getElementById('edit-scheduled-out').value;
 
@@ -194,6 +200,7 @@ async function saveEdit() {
       clock_in: clockIn || null,
       clock_out: clockOut || null,
       memo: memo || '',
+      break_minutes: breakMinutes,
     }),
   });
 
@@ -269,7 +276,9 @@ async function loadHistory() {
 
     const ci = record?.clock_in || '';
     const co = record?.clock_out || '';
-    const duration = calcDuration(ci, co) || '';
+    const brk = record?.break_minutes;
+    const duration = calcDuration(ci, co, brk) || '';
+    const breakDisplay = brk != null ? `${brk}分` : (ci && co ? '60分' : '');
     const memo = record?.memo || '';
 
     // 予定表示
@@ -290,6 +299,7 @@ async function loadHistory() {
       <td>${ci}</td>
       <td>${co}</td>
       <td>${duration}</td>
+      <td class="break-text">${breakDisplay}</td>
       <td class="schedule-text">${scheduleText}</td>
       <td style="text-align:left; max-width:100px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${memo}</td>
       <td><button class="btn btn-edit" data-date="${dateStr}">編集</button></td>

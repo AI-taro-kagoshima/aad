@@ -28,7 +28,7 @@ app.put('/api/settings', (req, res) => {
 app.get('/api/today', (req, res) => {
   const today = new Date().toLocaleDateString('sv-SE');
   const record = db.prepare('SELECT * FROM records WHERE date = ?').get(today);
-  res.json(record || { date: today, clock_in: null, clock_out: null, scheduled_in: null, scheduled_out: null, memo: '' });
+  res.json(record || { date: today, clock_in: null, clock_out: null, scheduled_in: null, scheduled_out: null, break_minutes: null, memo: '' });
 });
 
 // ---- 出勤 ----
@@ -78,17 +78,18 @@ app.post('/api/clock-out', (req, res) => {
 
 app.put('/api/records/:date', (req, res) => {
   const { date } = req.params;
-  const { clock_in, clock_out, memo } = req.body;
+  const { clock_in, clock_out, memo, break_minutes } = req.body;
+  const brk = break_minutes != null ? Number(break_minutes) : null;
 
   const existing = db.prepare('SELECT * FROM records WHERE date = ?').get(date);
   if (existing) {
     db.prepare(`
-      UPDATE records SET clock_in = ?, clock_out = ?, memo = ?, updated_at = datetime('now', 'localtime')
+      UPDATE records SET clock_in = ?, clock_out = ?, memo = ?, break_minutes = ?, updated_at = datetime('now', 'localtime')
       WHERE date = ?
-    `).run(clock_in || null, clock_out || null, memo || '', date);
+    `).run(clock_in || null, clock_out || null, memo || '', brk, date);
   } else {
-    db.prepare('INSERT INTO records (date, clock_in, clock_out, memo) VALUES (?, ?, ?, ?)').run(
-      date, clock_in || null, clock_out || null, memo || ''
+    db.prepare('INSERT INTO records (date, clock_in, clock_out, memo, break_minutes) VALUES (?, ?, ?, ?, ?)').run(
+      date, clock_in || null, clock_out || null, memo || '', brk
     );
   }
 
@@ -159,13 +160,18 @@ app.get('/api/records/:year/:month', (req, res) => {
   let workDays = 0;
   let scheduledMinutes = 0; // 予定勤務分（未実績の将来日分）
 
+  const defaultBreak = 60;
+
   for (const r of records) {
+    const brk = r.break_minutes != null ? r.break_minutes : defaultBreak;
     const hasActual = r.clock_in && r.clock_out;
     if (hasActual) {
-      actualMinutes += calcMinutes(r.clock_in, r.clock_out);
+      const gross = calcMinutes(r.clock_in, r.clock_out);
+      actualMinutes += Math.max(gross - brk, 0);
       workDays++;
     } else if (r.scheduled_in && r.scheduled_out && r.date > today) {
-      scheduledMinutes += calcMinutes(r.scheduled_in, r.scheduled_out);
+      const gross = calcMinutes(r.scheduled_in, r.scheduled_out);
+      scheduledMinutes += Math.max(gross - brk, 0);
     }
   }
 

@@ -307,6 +307,11 @@ h2 {
   background: #f8f9fa;
 }
 
+.break-text {
+  color: #999;
+  font-size: 0.78rem;
+}
+
 .schedule-text {
   color: #888;
   font-size: 0.78rem;
