@@ -44,7 +44,7 @@ app.post('/api/clock-in', (req, res) => {
   }
 
   if (existing) {
-    db.prepare('UPDATE records SET clock_in = ?, updated_at = datetime("now", "localtime") WHERE date = ?').run(time, date);
+    db.prepare("UPDATE records SET clock_in = ?, updated_at = datetime('now', 'localtime') WHERE date = ?").run(time, date);
   } else {
     db.prepare('INSERT INTO records (date, clock_in) VALUES (?, ?)').run(date, time);
   }
@@ -68,7 +68,7 @@ app.post('/api/clock-out', (req, res) => {
     return res.status(400).json({ error: '既に退勤済みです' });
   }
 
-  db.prepare('UPDATE records SET clock_out = ?, updated_at = datetime("now", "localtime") WHERE date = ?').run(time, date);
+  db.prepare("UPDATE records SET clock_out = ?, updated_at = datetime('now', 'localtime') WHERE date = ?").run(time, date);
 
   const record = db.prepare('SELECT * FROM records WHERE date = ?').get(date);
   res.json(record);
@@ -127,7 +127,7 @@ app.put('/api/memo', (req, res) => {
   if (!existing) {
     return res.status(404).json({ error: '記録が見つかりません' });
   }
-  db.prepare('UPDATE records SET memo = ?, updated_at = datetime("now", "localtime") WHERE date = ?').run(memo, date);
+  db.prepare("UPDATE records SET memo = ?, updated_at = datetime('now', 'localtime') WHERE date = ?").run(memo, date);
   res.json({ success: true });
 });
 
@@ -167,11 +167,13 @@ app.get('/api/records/:year/:month', (req, res) => {
     const hasActual = r.clock_in && r.clock_out;
     if (hasActual) {
       const gross = calcMinutes(r.clock_in, r.clock_out);
-      actualMinutes += Math.max(gross - brk, 0);
+      const net = Math.max(gross - brk, 0);
+      actualMinutes += Math.floor(net / 15) * 15;
       workDays++;
     } else if (r.scheduled_in && r.scheduled_out && r.date > today) {
       const gross = calcMinutes(r.scheduled_in, r.scheduled_out);
-      scheduledMinutes += Math.max(gross - brk, 0);
+      const net = Math.max(gross - brk, 0);
+      scheduledMinutes += Math.floor(net / 15) * 15;
     }
   }
 

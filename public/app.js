@@ -31,10 +31,11 @@ function calcDuration(clockIn, clockOut, breakMins) {
   const [inH, inM] = clockIn.split(':').map(Number);
   const [outH, outM] = clockOut.split(':').map(Number);
   const brk = breakMins != null ? breakMins : 60;
-  const mins = (outH * 60 + outM) - (inH * 60 + inM) - brk;
-  if (mins < 0) return null;
-  const h = Math.floor(mins / 60);
-  const m = mins % 60;
+  const net = (outH * 60 + outM) - (inH * 60 + inM) - brk;
+  if (net < 0) return null;
+  const rounded = Math.floor(net / 15) * 15;
+  const h = Math.floor(rounded / 60);
+  const m = rounded % 60;
   return `${h}:${String(m).padStart(2, '0')}`;
 }
 
