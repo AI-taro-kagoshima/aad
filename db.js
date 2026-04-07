@@ -1,7 +1,13 @@
 const Database = require('better-sqlite3');
 const path = require('path');
 
-const db = new Database(path.join(__dirname, 'attendance.db'));
+const fs = require('fs');
+
+const dataDir = process.env.NODE_ENV === 'production' && fs.existsSync('/data')
+  ? '/data'
+  : __dirname;
+
+const db = new Database(path.join(dataDir, 'attendance.db'));
 
 db.pragma('journal_mode = WAL');
 
