@@ -3,9 +3,11 @@ const path = require('path');
 
 const fs = require('fs');
 
-const dataDir = process.env.NODE_ENV === 'production' && fs.existsSync('/data')
-  ? '/data'
-  : __dirname;
+const dataDir = process.env.VERCEL
+  ? '/tmp'
+  : process.env.NODE_ENV === 'production' && fs.existsSync('/data')
+    ? '/data'
+    : __dirname;
 
 const db = new Database(path.join(dataDir, 'attendance.db'));
 

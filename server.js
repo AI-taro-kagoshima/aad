@@ -195,6 +195,10 @@ app.get('/api/records/:year/:month', (req, res) => {
   });
 });
 
-app.listen(PORT, () => {
-  console.log(`出退勤アプリ起動: http://localhost:${PORT}`);
-});
+if (!process.env.VERCEL) {
+  app.listen(PORT, () => {
+    console.log(`出退勤アプリ起動: http://localhost:${PORT}`);
+  });
+}
+
+module.exports = app;
